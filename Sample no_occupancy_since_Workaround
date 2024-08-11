@@ -1,0 +1,113 @@
+/*
+This script is a workaround for the missing data point "no_occupancy_since" for Aqara or Xiaomi motion detectors in conjunction with ioBroker.zigbee2mqtt adapter in iobroker.
+Tested with:
+js-controller: 6.0.9
+node.js: v20.16.0
+NPM: 10.8.1
+*/
+
+// Bewegungsmelder-Datenpunkte
+// Motion detector data points
+const motionSensor1 = "zigbee2mqtt.0.0x00158d0007752803.occupancy";  // Treppenaufgang_Bewegungsmelder_EG
+const motionSensor2 = "zigbee2mqtt.0.0x00158d000775a2dd.occupancy";  // Treppenaufgang_Bewegungsmelder_OG
+const motionSensor3 = "zigbee2mqtt.0.0x00158d0004ab1f74.occupancy";  // Bewegungsmelder_Windfang
+const motionSensor4 = "zigbee2mqtt.0.0x00158d000543d44f.occupancy";  // Bewegungsmelder_Badezimmer_Gäste
+const motionSensor5 = "zigbee2mqtt.0.0x00158d00045d2202.occupancy";  // Bewegungsmelder_Garage
+
+// Ziel-Datenpunkte für die Sekunden seit letzter Bewegung
+// Target data points for the seconds since last movement
+const state1 = "0_userdata.0.Custom_Variables.Treppenaufgang.Bewegungsmelder_EG.no_occupancy_since";
+const state2 = "0_userdata.0.Custom_Variables.Treppenaufgang.Bewegungsmelder_OG.no_occupancy_since";
+const state3 = "0_userdata.0.Custom_Variables.Windfang.Bewegungsmelder.no_occupancy_since";
+const state4 = "0_userdata.0.Custom_Variables.Badezimmer_Gäste.Bewegungsmelder.no_occupancy_since";
+const state5 = "0_userdata.0.Custom_Variables.Garage.Bewegungsmelder.no_occupancy_since";
+
+// Maximale Sekundenanzahl (1200 Sekunden = 20 Minuten)
+// Maximum number of seconds (1200 seconds = 20 minutes)
+const maxSeconds = 1200;
+
+// Variable für die Zeitintervalle in Sekunden, nach denen der Zähler erhöht wird 
+// Variable for the time intervals in seconds after which the counter is incremented
+const interval = 10;  // Setze diesen Wert auf die gewünschte Anzahl an Sekunden
+
+// Timer-Variablen
+// Timer variables
+let timer1 = null;
+let timer2 = null;
+let timer3 = null;
+let timer4 = null;
+let timer5 = null;
+
+// Funktion zum Starten oder Zurücksetzen des Timers für einen Sensor
+// Function for starting or resetting the timer for a sensor
+function startOrResetTimer(sensor, state, timer) {
+    if (timer) clearInterval(timer);  // Vorherigen Timer stoppen
+
+    setState(state, 0);  // Zähler auf 0 setzen
+
+    // Neuen Timer starten
+    return setInterval(() => {
+        let currentValue = getState(state).val;
+        if (currentValue < maxSeconds) {
+            setState(state, currentValue + interval);
+        } else {
+            clearInterval(timer);  // Timer stoppen, wenn maxSeconds erreicht sind
+        }
+    }, interval * 1000);  // Intervall in Millisekunden (z.B. alle 10 Sekunden)
+}
+
+// Treppenaufgang_Bewegungsmelder_EG überwachen
+on({id: motionSensor1, change: "ne"}, function (obj) {
+    if (obj.state.val && !obj.oldState.val) {  // Wechsel von false auf true
+        timer1 = startOrResetTimer(motionSensor1, state1, timer1);
+    }
+});
+
+// Treppenaufgang_Bewegungsmelder_OG überwachen
+on({id: motionSensor2, change: "ne"}, function (obj) {
+    if (obj.state.val && !obj.oldState.val) {  // Wechsel von false auf true
+        timer2 = startOrResetTimer(motionSensor2, state2, timer2);
+    }
+});
+
+// Windfang_Bewegungsmelder überwachen
+on({id: motionSensor3, change: "ne"}, function (obj) {
+    if (obj.state.val && !obj.oldState.val) {  // Wechsel von false auf true
+        timer3 = startOrResetTimer(motionSensor3, state3, timer3);
+    }
+});
+
+// Badezimmer_Gäste_Bewegungsmelder überwachen
+on({id: motionSensor4, change: "ne"}, function (obj) {
+    if (obj.state.val && !obj.oldState.val) {  // Wechsel von false auf true
+        timer4 = startOrResetTimer(motionSensor4, state4, timer4);
+    }
+});
+
+// Garage_Bewegungsmelder überwachen
+on({id: motionSensor5, change: "ne"}, function (obj) {
+    if (obj.state.val && !obj.oldState.val) {  // Wechsel von false auf true
+        timer5 = startOrResetTimer(motionSensor5, state5, timer5);
+    }
+});
+
+
+// Initialisierung: Timer oder Initialwert setzen
+// Initialization: Set timer or initial value
+function initializeState(sensor, state) {
+    if (getState(sensor).val) {  // Wenn Occupancy auf true steht
+        timer1 = startOrResetTimer(sensor, state, timer1);  // Timer starten
+    } else {  // Wenn Occupancy auf false steht
+        setState(state, maxSeconds);  // Wert auf 1200 Sekunden setzen
+    }
+}
+
+// Initialisierung für Bewegungsmelder
+// Initialization for motion detector
+initializeState(motionSensor1, state1);
+initializeState(motionSensor2, state2);
+initializeState(motionSensor3, state3);
+initializeState(motionSensor4, state4);
+initializeState(motionSensor5, state5);
+
+
